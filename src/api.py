@@ -2,58 +2,57 @@ from requests import get
 
 
 class APIAdapter:
+    """Класс для получения данных из OpenStreetMap и OpenSky."""
 
-    def __init__(self) -> None:
-        self.__openstreetmap_url = 'https://nominatim.openstreetmap.org/search'
-        self.__opensky_url = 'https://opensky-network.org/api/states/all?'
-
+    def __init__(self):
+        self.__openstreetmap_url = "https://nominatim.openstreetmap.org/search"
+        self.__opensky_url = "https://opensky-network.org/api/states/all"
 
     def get_aeroplanes(self, country: str) -> list[dict]:
-        #Headers с user-agent - обязательный параметр при запросе к nominatim.openstreetmap.
-        #Вы можете использовать любое название вместо test-app/1.0, например просто test-app.
-        headers_nominatim = {
-            'User-Agent': 'test-app/1.0',
-        }
+        """
+        Возвращает список самолетов, находящихся в воздушном пространстве страны.
+        """
 
-        #Указываем параметры: в каком формате возвращать данные и максимальную длину списка стран в ответе.
-        params_nominatim = {
-            'country': country,
-            'format': 'json',
-            'limit': 1,
-        }
+        headers = {"User-Agent": "airplanes-tracker/1.0"}
 
-        response = get(url=self.__openstreetmap_url, params=params_nominatim, headers=headers_nominatim)
+        params_nominatim = {"country": country, "format": "json", "limit": 1}
+
+        response = get(
+            self.__openstreetmap_url,
+            headers=headers,
+            params=params_nominatim,
+        )
 
         data = response.json()
 
-        #Пример ответа от nominatim.openstreetmap можно посмотреть в задании курсовой.
-        geo_coordinates = data[0].get('boundingbox')
+        bounding_box = data[0]["boundingbox"]
 
-        #Параметры для фильтрации самолетов по их географическим координатам.
-        params = {
-            'lamin': geo_coordinates[0],
-            'lamax': geo_coordinates[1],
-            'lomin': geo_coordinates[2],
-            'lomax': geo_coordinates[3],
+        params_opensky = {
+            "lamin": bounding_box[0],
+            "lamax": bounding_box[1],
+            "lomin": bounding_box[2],
+            "lomax": bounding_box[3],
         }
 
-        response = get(url=self.__opensky_url, params=params)
+        response = get(
+            self.__opensky_url,
+            params=params_opensky,
+        )
 
-        #Пример ответа от opensky-network можно посмотреть в задании курсовой.
-        aeroplanes = response.json()['states'][:50]
+        data = response.json()
 
-        filter_airplanes = []
-        for aeroplane in aeroplanes:
-            filter_airplanes.append({"Callsign": aeroplane[1].strip(),
-                                     "country register": aeroplane[2],
-                                     "velocity": aeroplane[9],
-                                     "altitude": aeroplane[13]})
+        states = data.get("states")
 
-        return filter_airplanes
+        aeroplanes = []
 
+        for state in states[:50]:
+            aeroplanes.append(
+                {
+                    "callsign": state[1].strip(),
+                    "country_register": state[2],
+                    "velocity": state[9],
+                    "altitude": state[13],
+                }
+            )
 
-# if __name__ == '__main__':
-#     countries = ['Canada', 'China', 'Brazil', 'Germany']
-#     api = APIAdapter()
-#     for country in countries:
-#         print(api.get_aeroplanes(country))
+        return aeroplanes
